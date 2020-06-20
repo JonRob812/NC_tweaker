@@ -7,6 +7,9 @@ file_path = ''
 file_base_name = ''
 file = None
 
+location_codes = ['X', 'Y']
+arc_codes = ['I', 'J']
+
 
 def main():
     global file_path, file_base_name, file
@@ -15,8 +18,9 @@ def main():
         kill()
     file_path, file_base_name, file = open_file()
     display_menu()
-    func = input('Enter Tweak #: ')
-    new_code = tweak(func)
+    menu_key = get_value('Enter Tweak: ', int)
+    func = menu_items[menu_key][1]
+    new_code = tweak(func, file)
     save_file(new_code)
     kill()
 
@@ -27,6 +31,7 @@ def open_file():
     with open(path) as src:
         f = src
         f.lines = f.readlines()
+        f.lines = [line.upper() for line in f.lines]
     if f.lines[0][0] != '%' and f.lines[-1][-1]:
         print('invalid file dropped')
         kill()
@@ -49,8 +54,8 @@ def display_menu():
         print(k, menu_items[k][0])
 
 
-def tweak(func):
-    code = func()
+def tweak(func, f):
+    code = func(f)
     return code
 
 
@@ -71,35 +76,42 @@ def rotate(f):
     center = 0, 0
     angle = get_value('angle: ', float)
 
-    use_origin = None
-    while use_origin != 'y' or use_origin != 'n':
-        use_origin = input('use for wfo origin? (y or n): ')
+    use_origin = input('use wfo origin for center? (y or n): ')
+    print(use_origin)
     if use_origin == 'n':
         center_x = get_value('center_x = ', float)
         center_y = get_value('center_y = ', float)
         center = center_x, center_y
 
-    code = []
     lines = [Line(line) for line in f.lines]
+    find_modals(lines)
+
     for line in lines:
-        if line.codes
+        line.rotate_(angle, center)
+    return [x.tweaked_code_block for x in lines]
 
 
-def rotate_(point, angle, center_point):
-    angle = math.radians(angle)
-    x, y = point
-    center_x, center_y = center_point
+def find_modals(lines):
+    modal_x, modal_y = None, None
+    position_lines = [x for x in lines if 'X' in x.codes or 'Y' in x.codes]
+    for line in position_lines:
 
-    sin = math.sin(angle)
-    cos = math.cos(angle)
-    temp_x = x - center_x
-    temp_y = y - center_y
-    rotated_temp_x = temp_x * cos + temp_y * sin
-    rotated_temp_y = (temp_x * -1) * sin + temp_y * cos
+        if 'X' in line.codes:
+            modal_x = line.codes['X']
+        else:
+            line.codes['X'] = modal_x
+            line.insert = 'X'
+        if 'Y' in line.codes:
+            modal_y = line.codes['Y']
+        else:
+            line.codes['Y'] = modal_y
+            line.insert = 'Y'
 
-    rotated_x = round(rotated_temp_x + center_x, 4)
-    rotated_y = round(rotated_temp_y + center_y, 4)
-    return rotated_x, rotated_y
+        if not isinstance(modal_x, float) or not isinstance(modal_y, float):
+            print('First location missing X or Y - Aborting')
+            kill()
+
+
 
 
 def translate():
@@ -137,44 +149,87 @@ menu_items = {
     5: ('split', split)
 }
 
+
 def change_code_string(string, start, end, new_value):
     return string[:start] + new_value + string[end:]
+
 
 class Line:
     code_pattern = re.compile(r"(?P<word>(?P<code>[A-z])(?P<val>-?\d*\.?\d+\.?))")
 
     def __init__(self, code_block):
         self.code_block = code_block
-        self.tweaked_code_block = None
+        self.tweaked_code_block = code_block
         self.code_matches = self.code_pattern.finditer(code_block)
+        self.code_matches_2 = self.code_pattern.finditer(code_block)
         self.codes = {match.group('code'): float(match.group('val')) for match in self.code_matches}
+        self.insert = None
 
     def rotate_(self, angle, center_point):
-        location_codes = ['X', 'x', 'Y', 'y']
-        arc_codes = ['I', 'i', 'J', 'j']
-        for code in location_codes:
-            if code in self.codes:
-                if not self.tweaked_code_block:
-                    self.tweaked_code_block = self.code_block
-                self.tweaked_code_block = change_code_string(self.tweaked_code_block, )
-
-
-
         angle = math.radians(angle)
-        for location in
-        x, y = point
-        center_x, center_y = center_point
+        if 'X' in self.codes:
+            if self.codes.get('G') == 28:
+                pass
+            else:
+                x, y = self.codes['X'], self.codes['Y']
+                point = rotate_point((x, y), angle, center_point)
+                self.codes['X'] = str(point[0])
+                self.codes['Y'] = str(point[1])
+        if 'I' in self.codes or 'J' in self.codes:
+            i, j = 0, 0
+            if 'I' in self.codes:
+                i = self.codes['I']
+            if 'J' in self.codes:
+                j = self.codes['J']
+            arc_point = rotate_point((i, j), angle)
+            if 'I' in self.codes:
+                self.codes['I'] = str(arc_point[0])
+            if 'J' in self.codes:
+                self.codes['J'] = str(arc_point[1])
+        for code in self.codes:
+            if code in ['X', 'Y', 'I', 'J']:
+                tweak_code_block(self)
+            continue
 
-        sin = math.sin(angle)
-        cos = math.cos(angle)
-        temp_x = x - center_x
-        temp_y = y - center_y
-        rotated_temp_x = temp_x * cos + temp_y * sin
-        rotated_temp_y = (temp_x * -1) * sin + temp_y * cos
 
-        rotated_x = round(rotated_temp_x + center_x, 4)
-        rotated_y = round(rotated_temp_y + center_y, 4)
-        return rotated_x, rotated_y
+def tweak_code_block(line):
+    x_y_insert_string = 'X' + str(line.codes['X']) + ' Y' + str(line.codes['Y'])
+    inserted = False
+    if line.codes.get('G') == 28:
+        pass
+    else:
+        for match in line.code_matches_2:
+            if match.group('code') in arc_codes:
+                new_code_word = match.group('code') + str(line.codes[match.group('code')])
+                line.tweaked_code_block = line.tweaked_code_block.replace(match.group('word'), new_code_word)
+            if not line.insert:
+                if match.group('code') == 'Y':
+                    line.tweaked_code_block = line.tweaked_code_block.replace(match.group('word'), '')
+            if match.group('code') == line.insert:
+                continue
+            if match.group('code') in location_codes:
+                if not inserted:
+                    line.tweaked_code_block = line.tweaked_code_block.replace(match.group('word'), x_y_insert_string)
+                    inserted = True
+
+
+def rotate_point(point, angle, center=(0, 0)):
+    x, y = point
+    center_x, center_y = center
+    sin = math.sin(angle)
+    cos = math.cos(angle)
+    temp_x = x + center_x
+    temp_y = y + center_y
+    rotated_temp_x = temp_x * cos + temp_y * sin
+    rotated_temp_y = (temp_x * -1) * sin + temp_y * cos
+    x = round(rotated_temp_x - center_x, 4)
+    if x == 0:
+        x = abs(x)
+    y = round(rotated_temp_y - center_y, 4)
+    if y == 0:
+        y = abs(y)
+    return x, y
+
 
 if __name__ == '__main__':
     main()
