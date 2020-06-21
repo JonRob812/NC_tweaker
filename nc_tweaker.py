@@ -30,9 +30,10 @@ def open_file():
     base = os.path.basename(path)
     with open(path) as src:
         f = src
-        f.lines = f.readlines()
-        f.lines = [line.upper() for line in f.lines]
-    if f.lines[0][0] != '%' and f.lines[-1][-1]:
+        f.raw_lines = f.readlines()
+        f.raw_lines = [line.upper() for line in f.raw_lines]
+        f.lines = [Line(line) for line in f.raw_lines]
+    if f.raw_lines[0][0] != '%' and f.raw_lines[-1][-1]:
         print('invalid file dropped')
         kill()
     return path, base, f
@@ -83,12 +84,12 @@ def rotate(f):
         center_y = get_value('center_y = ', float)
         center = center_x, center_y
 
-    lines = [Line(line) for line in f.lines]
-    find_modals(lines)
 
-    for line in lines:
+    find_modals(f.lines)
+
+    for line in f.lines:
         line.rotate_(angle, center)
-    return [x.tweaked_code_block for x in lines]
+    return [x.tweaked_code_block for x in f.lines]
 
 
 def find_modals(lines):
@@ -116,17 +117,80 @@ def translate(f):
     print('Enter translation values')
     x_shift = get_value('X ', float)
     y_shift = get_value('Y ', float)
-    lines = [Line(line) for line in f.lines]
-    for line in lines:
+    for line in f.lines:
         line.translate_(x_shift, y_shift)
-    return [x.tweaked_code_block for x in lines]
+    return [x.tweaked_code_block for x in f.lines]
 
 
-
-def change_tool_num():
+def change_tool_num(f):
     """scan for all tools #s in the file - walk user through assigning new values for each one
     replace all that are changed"""
-    pass
+    f.t_codes = []
+    f.h_codes = []
+    f.d_codes = []
+    for line in f.lines:
+        line.matches = []
+        for match in line.code_matches_2:
+            line.matches.append(match)
+            if match.group('code') == 'T':
+                f.t_codes.append([match.group('word'), match.group('code'), match.group('val'), match])
+            if match.group('code') == 'H':
+                f.h_codes.append([match.group('word'), match.group('code'), match.group('val'), match])
+            if match.group('code') == 'D':
+                f.d_codes.append([match.group('word'), match.group('code'), match.group('val'), match])
+    distinct_t = set([t[0] for t in f.t_codes])
+    distinct_d = set([d[0] for d in f.d_codes])
+    offset_guess = []
+    d_plus = 0
+    for d in distinct_d:
+        for t in distinct_t:
+            if int(d[1:]) == int(t[1:]):
+                print('same tool and D offset numbers')
+    for d in distinct_d:
+        for t in distinct_t:
+            for i in range(1, 10):
+                d_val, t_val = int(d[1:]), int(t[1:])
+                d_t_diff = d_val - t_val
+                if not d_t_diff % (i*10):
+                    offset_guess = d_t_diff
+                    break
+    print(f'I think the D number is +{offset_guess} from T number, am I correct?')
+    correct_guess = get_value('y or n\n', str).upper()
+    if correct_guess == 'Y':
+        d_plus = offset_guess
+    elif correct_guess == 'N':
+        d_plus = get_value('enter correct D+ amount\n', int)
+    else:
+        kill()
+    use_same = get_value('use same D+ for new tool numbers? (y or n)\n', str).upper()
+    if use_same == 'Y':
+        new_d_plus = d_plus
+    elif use_same == 'N':
+        new_d_plus = get_value('enter new D+ amount\n', int)
+    else:
+        new_d_plus = -1
+        kill()
+
+    new_tool_key = {}
+    new_tool_key_filled_correctly = False
+    while not new_tool_key_filled_correctly:
+        print('enter new tool numbers')
+        for t in distinct_t:
+            new_t = -1
+            while new_t < 0:
+                new_t = get_value(f'{t} = T', int)
+                if new_t < 0:
+                    print('please enter positive integer')
+            new_tool_key[int(t[1:])] = new_t
+        distinct_new_tools = set([new_tool_key[v] for v in new_tool_key])
+        if len(distinct_new_tools) != len(new_tool_key):
+            print('duplicate tool numbers - please enter unique integers')
+            pass
+        else:
+            new_tool_key_filled_correctly = True
+    for line in f.lines:
+        line.change_tool_numbers_(new_tool_key, d_plus, new_d_plus)
+    return [line.tweaked_code_block for line in f.lines]
 
 
 def change_wfo():
@@ -187,7 +251,6 @@ class Line:
         for code in self.codes:
             if code in ['X', 'Y', 'I', 'J']:
                 rotate_code_block(self)
-            continue
 
     def translate_(self, x, y):
         if self.codes.get('G') == 28:
@@ -208,6 +271,20 @@ class Line:
             if self.codes.get('Y') is not None:
                 self.codes['Y'] = round(self.codes['Y'] + y, 4)
                 self.tweaked_code_block = self.tweaked_code_block.replace(y_replace, 'Y' + str(self.codes['Y']))
+
+    def change_tool_numbers_(self, new_tools, original_d, new_d): #TODO we found the off set but we ned to match them to orignal for renumberind d correctly
+        for code in self.codes:
+            if code == 'T':
+                self.tweaked_code_block = self.tweaked_code_block.\
+                    replace('T' + str(int(self.codes['T'])), 'T' + str(new_tools[int(self.codes['T'])]))
+            if code == 'D':
+                tool_num = self.codes['D'] - original_d
+                self.tweaked_code_block = self.tweaked_code_block.\
+                    replace('D' + str(int(self.codes['D'])), 'D' + str(new_tools[tool_num] + new_d))
+            if code == 'H':
+                self.tweaked_code_block = self.tweaked_code_block. \
+                    replace('H' + str(int(self.codes['H'])), 'H' + str(new_tools[int(self.codes['H'])]))
+
 
 
 
