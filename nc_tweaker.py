@@ -18,7 +18,7 @@ def main():
         kill()
     file_path, file_base_name, file = open_file()
     display_menu()
-    menu_key = get_value('Enter Tweak: ', int)
+    menu_key = get_value('', int)
     func = menu_items[menu_key][1]
     new_code = tweak(func, file)
     save_file(new_code)
@@ -112,17 +112,15 @@ def find_modals(lines):
             kill()
 
 
+def translate(f):
+    print('Enter translation values')
+    x_shift = get_value('X ', float)
+    y_shift = get_value('Y ', float)
+    lines = [Line(line) for line in f.lines]
+    for line in lines:
+        line.translate_(x_shift, y_shift)
+    return [x.tweaked_code_block for x in lines]
 
-
-def translate():
-    """shift x,y values"""
-    pass
-
-
-def translate_(point, translation):
-    x, y = point
-    trans_x, trans_y = translation
-    return x + trans_x, y + trans_y
 
 
 def change_tool_num():
@@ -188,11 +186,34 @@ class Line:
                 self.codes['J'] = str(arc_point[1])
         for code in self.codes:
             if code in ['X', 'Y', 'I', 'J']:
-                tweak_code_block(self)
+                rotate_code_block(self)
             continue
 
+    def translate_(self, x, y):
+        if self.codes.get('G') == 28:
+            pass
+        else:
+            x_replace = ''
+            y_replace = ''
 
-def tweak_code_block(line):
+            for match in self.code_matches_2:
+                if match.group('code') == 'X':
+                    x_replace = match.group('word')
+                if match.group('code') == 'Y':
+                    y_replace = match.group('word')
+
+            if self.codes.get('X') is not None:
+                self.codes['X'] = round(self.codes['X'] + x, 4)
+                self.tweaked_code_block = self.tweaked_code_block.replace(x_replace, 'X' + str(self.codes['X']))
+            if self.codes.get('Y') is not None:
+                self.codes['Y'] = round(self.codes['Y'] + y, 4)
+                self.tweaked_code_block = self.tweaked_code_block.replace(y_replace, 'Y' + str(self.codes['Y']))
+
+
+
+
+
+def rotate_code_block(line):
     x_y_insert_string = 'X' + str(line.codes['X']) + ' Y' + str(line.codes['Y'])
     inserted = False
     if line.codes.get('G') == 28:
@@ -229,6 +250,12 @@ def rotate_point(point, angle, center=(0, 0)):
     if y == 0:
         y = abs(y)
     return x, y
+
+
+def translate_point(point, translation):
+    x, y = point
+    trans_x, trans_y = translation
+    return x + trans_x, y + trans_y
 
 
 if __name__ == '__main__':
