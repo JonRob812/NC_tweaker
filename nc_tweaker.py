@@ -193,9 +193,25 @@ def change_tool_num(f):
     return [line.tweaked_code_block for line in f.lines]
 
 
-def change_wfo():
+def change_wfo(f):
     """scan for wfo offsets, walk user through reassigning"""
-    pass
+    wfo_list = set([match.group('word') for line in f.lines for match in line.code_matches_2 if match.group('code') == 'G' and 53 < int(match.group('val')) < 60])
+    new_offsets = {}
+    new_offsets_filled_correctly = False
+    while not new_offsets_filled_correctly:
+        for offset in wfo_list:
+            new = 0
+            while not 53 < new < 59:
+                new = get_value(f'{offset} = G', int)
+                if not 53 < new < 59:
+                    print('invalid offset - valid choices are integers from 54 to 59')
+            new_offsets[offset] = 'G' + str(new)
+        new_offsets_filled_correctly = True
+    return [x.tweaked_code_block.replace(wfo, new_offsets[wfo]) for x in f.lines for wfo in new_offsets]
+
+
+
+
 
 
 def split():
