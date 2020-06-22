@@ -6,9 +6,14 @@ import math
 file_path = ''
 file_base_name = ''
 file = None
-
+save_prefix = 'tweaked_'
 location_codes = ['X', 'Y']
 arc_codes = ['I', 'J']
+
+logo = """_  _ ____    ___ _ _ _ ____ ____ _  _ ____ ____ 
+|\ | |        |  | | | |___ |__| |_/  |___ |__/ 
+| \| |___     |  |_|_| |___ |  | | \_ |___ |  \ 
+"""
 
 
 def main():
@@ -22,6 +27,7 @@ def main():
     func = menu_items[menu_key][1]
     new_code = tweak(func, file)
     save_file(new_code)
+
     kill()
 
 
@@ -40,9 +46,13 @@ def open_file():
 
 
 def save_file(new_code):
-    with open('tweaked_' + file_base_name, 'w') as new_file:
+    with open(save_name(), 'w') as new_file:
         for line in new_code:
             new_file.write(line)
+
+
+def save_name():
+    return 'tweaked_' + file_base_name
 
 
 def kill():
@@ -51,6 +61,9 @@ def kill():
 
 
 def display_menu():
+    print(logo)
+    print('dropped file :', file_base_name)
+    print('will save as :', os.path.abspath(save_name()), '\n')
     for k in menu_items:
         print(k, menu_items[k][0])
 
@@ -73,20 +86,15 @@ def get_value(help_string, type_):
 def rotate(f):
     """rotate the x,y location about desired location relative to wfo
     rotate the i,j values about 0,0 opposite way"""
-
     center = 0, 0
     angle = get_value('angle: ', float)
-
     use_origin = input('use wfo origin for center? (y or n): ')
     print(use_origin)
     if use_origin == 'n':
         center_x = get_value('center_x = ', float)
         center_y = get_value('center_y = ', float)
         center = center_x, center_y
-
-
     find_modals(f.lines)
-
     for line in f.lines:
         line.rotate_(angle, center)
     return [x.tweaked_code_block for x in f.lines]
@@ -96,7 +104,6 @@ def find_modals(lines):
     modal_x, modal_y = None, None
     position_lines = [x for x in lines if 'X' in x.codes or 'Y' in x.codes]
     for line in position_lines:
-
         if 'X' in line.codes:
             modal_x = line.codes['X']
         else:
@@ -107,7 +114,6 @@ def find_modals(lines):
         else:
             line.codes['Y'] = modal_y
             line.insert = 'Y'
-
         if not isinstance(modal_x, float) or not isinstance(modal_y, float):
             print('First location missing X or Y - Aborting')
             kill()
@@ -140,21 +146,21 @@ def change_tool_num(f):
                 f.d_codes.append([match.group('word'), match.group('code'), match.group('val'), match])
     distinct_t = set([t[0] for t in f.t_codes])
     distinct_d = set([d[0] for d in f.d_codes])
-    offset_guess = []
+    offset_guess = None
     d_plus = 0
     for d in distinct_d:
         for t in distinct_t:
             if int(d[1:]) == int(t[1:]):
-                print('same tool and D offset numbers')
-    for d in distinct_d:
-        for t in distinct_t:
+                print('I think the T number and D offset numbers match, am I correct?')
+                offset_guess = 0
+                break
             for i in range(1, 10):
                 d_val, t_val = int(d[1:]), int(t[1:])
                 d_t_diff = d_val - t_val
                 if not d_t_diff % (i*10):
                     offset_guess = d_t_diff
+                    print(f'I think the D number is +{offset_guess} from T number, am I correct?')
                     break
-    print(f'I think the D number is +{offset_guess} from T number, am I correct?')
     correct_guess = get_value('y or n\n', str).upper()
     if correct_guess == 'Y':
         d_plus = offset_guess
@@ -207,23 +213,26 @@ def change_wfo(f):
                     print('invalid offset - valid choices are integers from 54 to 59')
             new_offsets[offset] = 'G' + str(new)
         new_offsets_filled_correctly = True
-    return [x.tweaked_code_block.replace(wfo, new_offsets[wfo]) for x in f.lines for wfo in new_offsets]
+    for line in f.lines:
+        original = line.tweaked_code_block
+        for wfo in wfo_list:
+            line.tweaked_code_block = line.tweaked_code_block.replace(wfo, new_offsets[wfo])
+            if original != line.tweaked_code_block:
+                break
+    return [x.tweaked_code_block for x in f.lines]
 
 
-
-
-
-
-def split():
+def split(f):
     """split at certain tool or line number"""
-    pass
+    print('Split is in development and not available yet - sorry for the inconvenience')
+    main()
 
 
 menu_items = {
     1: ('rotate', rotate),
     2: ('translate', translate),
-    3: ('change tool number', change_tool_num),
-    4: ('change work offset', change_wfo),
+    3: ('change tool numbers', change_tool_num),
+    4: ('change work offsets', change_wfo),
     5: ('split', split)
 }
 
@@ -288,7 +297,7 @@ class Line:
                 self.codes['Y'] = round(self.codes['Y'] + y, 4)
                 self.tweaked_code_block = self.tweaked_code_block.replace(y_replace, 'Y' + str(self.codes['Y']))
 
-    def change_tool_numbers_(self, new_tools, original_d, new_d): #TODO we found the off set but we ned to match them to orignal for renumberind d correctly
+    def change_tool_numbers_(self, new_tools, original_d, new_d):
         for code in self.codes:
             if code == 'T':
                 self.tweaked_code_block = self.tweaked_code_block.\
@@ -300,10 +309,6 @@ class Line:
             if code == 'H':
                 self.tweaked_code_block = self.tweaked_code_block. \
                     replace('H' + str(int(self.codes['H'])), 'H' + str(new_tools[int(self.codes['H'])]))
-
-
-
-
 
 
 def rotate_code_block(line):
