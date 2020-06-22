@@ -147,19 +147,25 @@ def change_tool_num(f):
     distinct_d = set([d[0] for d in f.d_codes])
     offset_guess = None
     d_plus = 0
-    for d in distinct_d:
-        for t in distinct_t:
-            if int(d[1:]) == int(t[1:]):
-                print('I think the T number and D offset numbers match, am I correct?')
-                offset_guess = 0
+    while offset_guess is None:
+        for d in distinct_d:
+            if offset_guess is not None:
                 break
-            for i in range(1, 10):
-                d_val, t_val = int(d[1:]), int(t[1:])
-                d_t_diff = d_val - t_val
-                if not d_t_diff % (i*10):
-                    offset_guess = d_t_diff
-                    print(f'I think the D number is +{offset_guess} from T number, am I correct?')
+            for t in distinct_t:
+                if offset_guess is not None:
                     break
+                if int(d[1:]) == int(t[1:]):
+                    offset_guess = 0
+                    print('I think the D number matches the T number, am I correct?')
+                    break
+                for i in range(1, 10):
+                    d_val, t_val = int(d[1:]), int(t[1:])
+                    d_t_diff = d_val - t_val
+                    if not d_t_diff % (i*10):
+                        offset_guess = d_t_diff
+                        print(f'I think the D number is +{offset_guess} from T number, am I correct?')
+                        break
+
     correct_guess = get_value('y or n\n', str).upper()
     if correct_guess == 'Y':
         d_plus = offset_guess
@@ -213,11 +219,7 @@ def change_wfo(f):
             new_offsets[offset] = 'G' + str(new)
         new_offsets_filled_correctly = True
     for line in f.lines:
-        original = line.tweaked_code_block
-        for wfo in wfo_list:
-            line.tweaked_code_block = line.tweaked_code_block.replace(wfo, new_offsets[wfo])
-            if original != line.tweaked_code_block:
-                break
+        line.change_work_offsets_(new_offsets)
     return [x.tweaked_code_block for x in f.lines]
 
 
@@ -308,6 +310,13 @@ class Line:
             if code == 'H':
                 self.tweaked_code_block = self.tweaked_code_block. \
                     replace('H' + str(int(self.codes['H'])), 'H' + str(new_tools[int(self.codes['H'])]))
+
+    def change_work_offsets_(self, new_wfo_map):
+        original = self.tweaked_code_block
+        for wfo in new_wfo_map:
+            self.tweaked_code_block = self.tweaked_code_block.replace(wfo, new_wfo_map[wfo])
+            if original != self.tweaked_code_block:
+                break
 
 
 def rotate_code_block(line):
