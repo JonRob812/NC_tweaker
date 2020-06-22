@@ -84,8 +84,7 @@ def get_value(help_string, type_):
 
 
 def rotate(f):
-    """rotate the x,y location about desired location relative to wfo
-    rotate the i,j values about 0,0 opposite way"""
+    """rotate the x,y,location about desired location relative to wfo and i,j about tool point"""
     center = 0, 0
     angle = get_value('angle: ', float)
     use_origin = input('use wfo origin for center? (y or n): ')
