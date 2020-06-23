@@ -2,6 +2,8 @@ import sys
 import re
 import os
 import math
+import time
+
 
 file_path = ''
 file_base_name = ''
@@ -10,6 +12,7 @@ save_prefix = 'tweaked_'
 location_codes = ['X', 'Y']
 arc_codes = ['I', 'J']
 
+
 logo = """_  _ ____    ___ _ _ _ ____ ____ _  _ ____ ____ 
 |\ | |        |  | | | |___ |__| |_/  |___ |__/ 
 | \| |___     |  |_|_| |___ |  | | \_ |___ |  \ 
@@ -17,6 +20,7 @@ logo = """_  _ ____    ___ _ _ _ ____ ____ _  _ ____ ____
 
 
 def main():
+    spin_hat()
     global file_path, file_base_name, file
     if len(sys.argv) < 2:
         print('no file dropped')
@@ -27,7 +31,6 @@ def main():
     func = menu_items[menu_key][1]
     new_code = tweak(func, file)
     save_file(new_code)
-
     kill()
 
 
@@ -52,7 +55,7 @@ def save_file(new_code):
 
 
 def save_name():
-    return 'tweaked_' + file_base_name
+    return save_prefix + file_base_name
 
 
 def kill():
@@ -66,6 +69,15 @@ def display_menu():
     print('will save as :', os.path.abspath(save_name()), '\n')
     for k in menu_items:
         print(k, menu_items[k][0])
+
+
+def spin_hat():
+    os.system('cls')
+    for i in range(3):
+        for hat in hats:
+            print(hat)
+            time.sleep(.15)
+            os.system('cls')
 
 
 def tweak(func, f):
@@ -226,6 +238,7 @@ def change_wfo(f):
 def split(f):
     """split at certain tool or line number"""
     print('Split is in development and not available yet - sorry for the inconvenience')
+    time.sleep(3)
     main()
 
 
@@ -362,6 +375,29 @@ def translate_point(point, translation):
     x, y = point
     trans_x, trans_y = translation
     return x + trans_x, y + trans_y
+
+
+hats = ["""
+           /
+         __|__
+      .-'     `-.
+     /           \\
+    |-- __________|
+    [__]__________| """,
+        """
+           \\
+         __|__
+      .-'     `-.
+     /           \\
+    |-- __________|
+    [__]__________|""",
+        """
+         -----
+         __|__
+      .-'     `-.
+     /           \\
+    |-- __________|
+    [__]__________| """]
 
 
 if __name__ == '__main__':
