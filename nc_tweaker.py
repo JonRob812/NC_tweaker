@@ -157,8 +157,13 @@ def change_tool_num(f):
                 f.d_codes.append([match.group('word'), match.group('code'), match.group('val'), match])
     distinct_t = set([t[0] for t in f.t_codes])
     distinct_d = set([d[0] for d in f.d_codes])
-    offset_guess = None
+    if len(distinct_d) == 0:
+        offset_guess = 'no_d'
+        print()
+    else:
+        offset_guess = None
     d_plus = 0
+
     while offset_guess is None:
         for d in distinct_d:
             if offset_guess is not None:
@@ -177,22 +182,24 @@ def change_tool_num(f):
                         offset_guess = d_t_diff
                         print(f'I think the D number is +{offset_guess} from T number, am I correct?')
                         break
-
-    correct_guess = get_value('y or n\n', str).upper()
-    if correct_guess == 'Y':
-        d_plus = offset_guess
-    elif correct_guess == 'N':
-        d_plus = get_value('enter correct D+ amount\n', int)
+    if offset_guess == 'no_d':
+        new_d_plus = 0
     else:
-        kill()
-    use_same = get_value('use same D+ for new tool numbers? (y or n)\n', str).upper()
-    if use_same == 'Y':
-        new_d_plus = d_plus
-    elif use_same == 'N':
-        new_d_plus = get_value('enter new D+ amount\n', int)
-    else:
-        new_d_plus = -1
-        kill()
+        correct_guess = get_value('y or n\n', str).upper()
+        if correct_guess == 'Y':
+            d_plus = offset_guess
+        elif correct_guess == 'N':
+            d_plus = get_value('enter correct D+ amount\n', int)
+        else:
+            kill()
+        use_same = get_value('use same D+ for new tool numbers? (y or n)\n', str).upper()
+        if use_same == 'Y':
+            new_d_plus = d_plus
+        elif use_same == 'N':
+            new_d_plus = get_value('enter new D+ amount\n', int)
+        else:
+            new_d_plus = -1
+            kill()
 
     new_tool_key = {}
     new_tool_key_filled_correctly = False
